@@ -445,8 +445,19 @@
     var uy0 = Math.min.apply(null, ps.map(function (p) { return p[1]; }));
     var uy1 = Math.max.apply(null, ps.map(function (p) { return p[1]; }));
 
-    var boxX0 = 46, boxX1 = o.W - (d.groups.length ? 196 : 46);
-    var boxY0 = 46, boxY1 = o.H - 56;
+    /* 「轴角 → 刻度数字 → 轴标题」链所需的边距（随数据数字与轴名的实际宽度自适应），
+       保证任何视角下轴标题不与刻度重叠、也不越出画布 */
+    function axisChainPad(a) {
+      var th = 0;
+      [-1, -0.5, 0, 0.5, 1].forEach(function (tv) {
+        th = Math.max(th, WB.plot.textW(WB.formatNum(d.centers[a] + tv * half[a], 2), 11) / 2);
+      });
+      return Math.ceil(9 + th + 14 + WB.plot.textW(d.axisNames[a], 12.5) / 2 + 8);
+    }
+    var boxX0 = Math.max(46, axisChainPad(2));   /* Z 竖轴的标签链朝左 */
+    var boxX1 = o.W - (d.groups.length ? Math.max(196, axisChainPad(1)) : Math.max(46, axisChainPad(1)));
+    var boxY0 = 46;
+    var boxY1 = o.H - Math.max(56, axisChainPad(0));  /* X 轴的标签链朝下 */
     var fitW = (boxX1 - boxX0) / Math.max(1e-6, ux1 - ux0);
     var fitH = (boxY1 - boxY0) / Math.max(1e-6, uy1 - uy0);
     var sc = Math.min(fitW, fitH) * o.zoom;
@@ -480,6 +491,8 @@
       { dir: 1, from: [-1, -1, -1], to: [-1, 1, -1] },
       { dir: 2, from: [-1, -1, -1], to: [-1, -1, 1] }
     ];
+    var tickBoxes = [];   /* 已放置刻度数字的包围盒，供轴标题避让 */
+    var titleBoxes = [];  /* 已放置轴标题的包围盒 */
     axes.forEach(function (ax) {
       var p1 = proj(ax.from), p2 = proj(ax.to);
       scene.appendChild(S('line', {
@@ -493,6 +506,7 @@
       var px = -uy, py = ux;
       /* 让刻度朝外（远离画布中心） */
       if ((p1[0] - cx) * px + (p1[1] - cy) * py < 0) { px = -px; py = -py; }
+      var tickHalfMax = 0;
       ts.forEach(function (tv) {
         var q = [
           p1[0] + (p2[0] - p1[0]) * (tv + 1) / 2,
@@ -502,13 +516,62 @@
           x1: q[0], y1: q[1], x2: q[0] + px * 5, y2: q[1] + py * 5, stroke: WB.plot.AXIS, 'stroke-width': 1
         }));
         var val = d.centers[ax.dir] + tv * half[ax.dir];
-        scene.appendChild(WB.plot.txt(q[0] + px * 9, q[1] + py * 9 + 3.5, WB.formatNum(val, 2), {
-          'text-anchor': 'middle', 'font-size': 11, 'font-weight': 600, fill: WB.plot.TICKTEXT
-        }));
+        var label = WB.formatNum(val, 2);
+        /* 刻度数字避让：与已放数字重叠时沿轴内移 16px 再试，仍重叠则省略该数字（保留刻度线）——
+           三轴共享原点角，角部数字在任何视角都易扎堆 */
+        var lp = [q[0] + px * 9, q[1] + py * 9];
+        var hw = WB.plot.textW(label, 11) / 2;
+        function lbBox(p) { return { x0: p[0] - hw, x1: p[0] + hw, y0: p[1] - 9, y1: p[1] + 9 }; }
+        var drawAt = lp;
+        if (tickBoxes.some(function (b) {
+          var c = lbBox(lp);
+          return c.x0 < b.x1 - 1 && b.x0 < c.x1 - 1 && c.y0 < b.y1 - 1 && b.y0 < c.y1 - 1;
+        })) {
+          var alt = [lp[0] + ux * 16, lp[1] + uy * 16];
+          var clashAlt = tickBoxes.some(function (b) {
+            var c = lbBox(alt);
+            return c.x0 < b.x1 - 1 && b.x0 < c.x1 - 1 && c.y0 < b.y1 - 1 && b.y0 < c.y1 - 1;
+          });
+          drawAt = clashAlt ? null : alt;
+        }
+        if (drawAt) {
+          scene.appendChild(WB.plot.txt(drawAt[0], drawAt[1] + 3.5, label, {
+            'text-anchor': 'middle', 'font-size': 11, 'font-weight': 600, fill: WB.plot.TICKTEXT
+          }));
+          tickBoxes.push(lbBox(drawAt));
+        }
+        tickHalfMax = Math.max(tickHalfMax, hw);
       });
-      /* 轴标题 */
-      var mid = [(p1[0] + p2[0]) / 2 + px * 22, (p1[1] + p2[1]) / 2 + py * 22];
-      scene.appendChild(WB.plot.txt(mid[0], mid[1] + 3.5, d.axisNames[ax.dir], {
+      /* 轴标题：候选位（侧向偏移 × 轴向分数）择优——取第一个与全部刻度数字、
+         已放标题均无重叠且在画布内的位置；退化视角（某轴投影塌缩）下自动避让 */
+      var baseOff = 9 + tickHalfMax + 14;
+      var cands = [];
+      [baseOff, baseOff + 12].forEach(function (o) {
+        [0.5, 0.74, 0.26, 0.88, 0.12].forEach(function (fr) {
+          cands.push([
+            p1[0] + (p2[0] - p1[0]) * fr + px * o,
+            p1[1] + (p2[1] - p1[1]) * fr + py * o
+          ]);
+        });
+      });
+      var name = d.axisNames[ax.dir];
+      var halfW = WB.plot.textW(name, 12.5) / 2, halfH = 8;
+      var mid = null;
+      for (var ki = 0; ki < cands.length; ki++) {
+        var c = cands[ki];
+        var box = { x0: c[0] - halfW, x1: c[0] + halfW, y0: c[1] - halfH, y1: c[1] + halfH };
+        if (box.x0 < 4 || box.x1 > o.W - 4 || box.y0 < 4 || box.y1 > o.H - 4) continue;
+        var clash = tickBoxes.concat(titleBoxes).some(function (b) {
+          return box.x0 < b.x1 - 1 && b.x0 < box.x1 - 1 && box.y0 < b.y1 - 1 && b.y0 < box.y1 - 1;
+        });
+        if (!clash) { mid = c; titleBoxes.push(box); break; }
+      }
+      if (!mid) {
+        mid = [p1[0] + (p2[0] - p1[0]) / 2 + px * baseOff, p1[1] + (p2[1] - p1[1]) / 2 + py * baseOff];
+        mid[0] = Math.min(Math.max(mid[0], 28), o.W - 28);
+        mid[1] = Math.min(Math.max(mid[1], 16), o.H - 16);
+      }
+      scene.appendChild(WB.plot.txt(mid[0], mid[1] + 3.5, name, {
         'text-anchor': 'middle', 'font-size': 12.5, 'font-weight': 600, fill: WB.plot.TEXT
       }));
     });
