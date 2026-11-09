@@ -438,7 +438,7 @@
         var subPct = d.value / total * 100;
         if (opt.showPct && subPct >= 2.4) {
           var rm = (rMid + 46 + R) / 2;
-          var lab = WB.plot.ellipsis(d.name, 12);
+          var lab = WB.plot.truncateW(d.name, 90, 10);
           root.appendChild(WB.plot.txt(cx + rm * Math.cos(mid), cy + rm * Math.sin(mid) + 3.5, lab, {
             'text-anchor': Math.cos(mid) < -0.15 ? 'end' : (Math.cos(mid) > 0.15 ? 'start' : 'middle'),
             'font-size': 10, fill: '#22303c'

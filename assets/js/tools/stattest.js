@@ -1056,8 +1056,10 @@
 
   function drawResidual(container, table, rnames, cnames) {
     var R = table.length, C = table[0].length;
-    var padL = 108, padT = 74, padB = 56, padR = 132;
     var cell = 58;
+    /* 行名列宽随最长行名自适应（正常数据不截断），列名按单元格宽度截断兜底 */
+    var rnW = Math.max.apply(null, rnames.map(function (rn) { return WB.plot.textW(rn, 12); }));
+    var padL = WB.clamp(rnW + 20, 108, 260), padT = 74, padB = 56, padR = 132;
     var W = padL + padR + C * cell;
     var H = padT + padB + R * cell;
 
@@ -1078,11 +1080,11 @@
 
     cnames.forEach(function (cn, ci) {
       var x = padL + (ci + 0.5) * cell;
-      root.appendChild(WB.plot.txt(x, padT - 12, WB.plot.ellipsis(cn, 9), { 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 600, fill: WB.plot.TICKTEXT }));
+      root.appendChild(WB.plot.txt(x, padT - 12, WB.plot.truncateW(cn, cell + 16, 12), { 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 600, fill: WB.plot.TICKTEXT }));
     });
     rnames.forEach(function (rn, ri) {
       var y = padT + (ri + 0.5) * cell;
-      root.appendChild(WB.plot.txt(padL - 10, y + 4, WB.plot.ellipsis(rn, 12), { 'text-anchor': 'end', 'font-size': 12, 'font-weight': 600, fill: WB.plot.TICKTEXT }));
+      root.appendChild(WB.plot.txt(padL - 10, y + 4, WB.plot.truncateW(rn, padL - 14, 12), { 'text-anchor': 'end', 'font-size': 12, 'font-weight': 600, fill: WB.plot.TICKTEXT }));
     });
 
     table.forEach(function (row, ri) {

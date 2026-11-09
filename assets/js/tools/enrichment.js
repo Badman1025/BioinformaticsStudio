@@ -529,12 +529,21 @@
 
   /* ------------------------------ 绘图 ---------------------------------- */
 
-  function termLabels(rows, maxUnits, maxLines) {
-    return rows.map(function (r) {
-      var t = r.description && r.description.length && r.description !== r.term
-        ? r.term : r.term;
-      return WB.plot.wrapText(t.replace(/_/g, ' '), maxUnits, maxLines || 2);
+  /* 自适应左标签列（统一规则：按像素估宽而非固定字符数）——
+   * 通路名 ≤320px 单行放下；超出的换到至多 2 行；labelW 随最宽行自适应，
+   * 正常数据不出现省略号，极长名才由 wrapTextW 截断兜底。 */
+  function enrLabelLayout(names, fs, minW, maxW) {
+    minW = minW || 220; maxW = maxW || 356;
+    names = names.map(function (t) { return String(t).replace(/_/g, ' '); });
+    var budget = Math.max.apply(null, names.map(function (nm) { return WB.plot.textW(nm, fs); }));
+    budget = Math.max(190, Math.min(320, budget));
+    var labels = names.map(function (nm) { return WB.plot.wrapTextW(nm, budget, fs, 2); });
+    var lineMax = 0, maxLines = 1;
+    labels.forEach(function (ls) {
+      maxLines = Math.max(maxLines, ls.length);
+      ls.forEach(function (ln) { lineMax = Math.max(lineMax, WB.plot.textW(ln, fs)); });
     });
+    return { labels: labels, labelW: Math.max(minW, Math.min(maxW, lineMax + 18)), maxLines: maxLines };
   }
 
   function drawDotPlot(container, rows, opt) {
@@ -552,16 +561,15 @@
     var pad = (vmax - vmin) * 0.06;
     vmin = Math.max(0, vmin - pad); vmax = vmax + pad;
 
-    var labelW = opt.labelW || 268;
-    var labelChars = Math.max(18, Math.floor((labelW - 18) / 6.6));
-    var labels = termLabels(rows, labelChars, 2);
+    var fsLab = 11.5;
+    var lay = enrLabelLayout(rows.map(function (r) { return r.term; }), fsLab);
+    var labelW = lay.labelW, labels = lay.labels;
     var rowH = opt.rowH || 27;
     var lineH = 13;
-    var maxLines = 1;
-    labels.forEach(function (l) { maxLines = Math.max(maxLines, l.length); });
-    if (maxLines > 1) rowH = Math.max(rowH, 12 + maxLines * lineH);
+    if (lay.maxLines > 1) rowH = Math.max(rowH, 12 + lay.maxLines * lineH);
     var headerH = 14, footerH = 74;
     var width = opt.width || 720;
+    if (width - labelW - 204 < 160) width = labelW + 204 + 160;   // 标签加宽时画布同步加宽
     var plotW = width - labelW - 204;   // 右侧预留图例区
     var height = headerH + n * rowH + footerH + 20;
 
@@ -673,10 +681,14 @@
     var n = rows.length;
     if (!n) { WB.plot.emptyState(container, T('enr.emptyPlot')); return null; }
     var labelW = 268;
-    var labelChars = Math.max(18, Math.floor((labelW - 18) / 6.6));
-    var labels = termLabels(rows, labelChars, 2);
+    var fsLab = 11.5;
+    var lay = enrLabelLayout(rows.map(function (r) { return r.term; }), fsLab);
+    labelW = lay.labelW;
+    var labels = lay.labels;
     var rowH = 24, lineH = 13;
-    var width = opt.width || 720, plotW = width - labelW - 120;
+    var width = opt.width || 720;
+    if (width - labelW - 120 < 160) width = labelW + 120 + 160;
+    var plotW = width - labelW - 120;
     var height = 14 + n * rowH + 68;
     var canvas = WB.plot.createSVG(container, width, height, {});
     var root = canvas.root;
@@ -744,14 +756,14 @@
     if (!isFinite(vmax) || vmax <= 0) vmax = 1;
     vmax = vmax * 1.08;
 
-    var labelW = opt.labelW || 268;
-    var labelChars = Math.max(18, Math.floor((labelW - 18) / 6.6));
-    var labels = termLabels(rows, labelChars, 2);
-    var rowH = opt.rowH || 27, lineH = 13, maxLines = 1;
-    labels.forEach(function (l) { maxLines = Math.max(maxLines, l.length); });
-    if (maxLines > 1) rowH = Math.max(rowH, 12 + maxLines * lineH);
+    var fsLab = 11.5;
+    var lay = enrLabelLayout(rows.map(function (r) { return r.term; }), fsLab);
+    var labelW = lay.labelW, labels = lay.labels;
+    var rowH = opt.rowH || 27, lineH = 13;
+    if (lay.maxLines > 1) rowH = Math.max(rowH, 12 + lay.maxLines * lineH);
     var headerH = 14, footerH = 96;
     var width = opt.width || 720;
+    if (width - labelW - 204 < 160) width = labelW + 204 + 160;
     var plotW = width - labelW - 204;
     var height = headerH + n * rowH + footerH + 20;
 
@@ -865,13 +877,19 @@
     var negMax = Math.max(1.5, Math.max.apply(null, rows.map(function (d) { return d.negLogP; })));
     var colF = WB.plot.ramp('orrd');
     var fs = 11, rowH = 22;
-    var leftW = 250, rightW = 130, width = opt.width || 860;
+    var rightW = 130, width = opt.width || 860;
+    /* 左列通路名自适应：宽度随最长名增长（≤430px），画布相应加宽，极长名截断兜底 */
+    var nameWMax = Math.max.apply(null, rows.map(function (r) {
+      return WB.plot.textW(String(r.term).replace(/_/g, ' '), fs);
+    }));
+    var leftW = Math.max(250, Math.min(430, nameWMax + 26));
+    if (width - leftW - rightW - 40 < 300) width = leftW + rightW + 340;
     var nRow = Math.max(rows.length, genes.length);
     var height = Math.max(260, 46 + nRow * rowH + 30);
 
     var canvas = WB.plot.createSVG(container, width, height, {});
     var root = canvas.root;
-    var termX = 236, geneX = width - rightW - 24;
+    var termX = leftW - 14, geneX = width - rightW - 24;
     var yTerm = function (i) { return 40 + i * rowH + rowH / 2; };
     var yGene = function (i) { return 40 + i * rowH + rowH / 2; };
 
@@ -899,7 +917,7 @@
         fill: fill, stroke: '#ffffff', 'stroke-width': 1
       }));
       var name = r.term.replace(/_/g, ' ');
-      var txt = WB.plot.ellipsis(name, 34);
+      var txt = WB.plot.truncateW(name, leftW - 24, fs);
       root.appendChild(WB.plot.txt(termX - 14, y + 4, txt, {
         'text-anchor': 'end', 'font-size': fs, 'font-weight': 600,
         fill: r.padj <= pCut ? WB.plot.TEXT : '#8fa0ae'
@@ -1098,7 +1116,8 @@
       rows.forEach(function (r, i2) {
         var p = cur[i2], rad = radOf(r);
         var raw = r.term.replace(/_/g, ' ');
-        var cand = [WB.plot.ellipsis(raw, 24), WB.plot.ellipsis(raw, 14)];
+        /* 节点标签候选：先按宽预算（≤260px）放不下再收窄；全名在悬停提示中 */
+        var cand = [WB.plot.truncateW(raw, 260, fsz), WB.plot.truncateW(raw, 130, fsz)];
         for (var ci = 0; ci < cand.length; ci++) {
           var w = textW(cand[ci], fsz), h = fsz * 1.2;
           var spots = [
@@ -1316,7 +1335,9 @@
     });
     termSet.sort(function (a, b) { return counts[b] - counts[a]; });
 
-    var labelW = 268, colW = Math.max(64, Math.min(120, (opt.width - labelW - 160) / lists.length));
+    var fsLab = 11.5;
+    var lay = enrLabelLayout(termSet, fsLab);
+    var labelW = lay.labelW, colW = Math.max(64, Math.min(120, (opt.width - labelW - 160) / lists.length));
     var rowH = 26, headerH = 56;
     var width = labelW + colW * lists.length + 150;
     var height = headerH + termSet.length * rowH + 84;
@@ -1334,7 +1355,7 @@
 
     lists.forEach(function (p, j) {
       var cx = labelW + j * colW + colW / 2;
-      root.appendChild(WB.plot.txt(cx, 22, WB.plot.ellipsis(p.name, 12), {
+      root.appendChild(WB.plot.txt(cx, 22, WB.plot.truncateW(p.name, colW - 6, 12), {
         'text-anchor': 'middle', 'font-size': 12, 'font-weight': 700, fill: WB.plot.TEXT
       }));
       root.appendChild(WB.plot.txt(cx, 38, T('common.geneUnit', { n: p.stats.n }), { 'text-anchor': 'middle', 'font-size': 10.5, fill: WB.plot.MUTED }));
@@ -1347,7 +1368,7 @@
     var colF = WB.plot.ramp('orrd');
     termSet.forEach(function (t, i) {
       var cy = headerH + i * rowH + rowH / 2;
-      var lines = WB.plot.wrapText(t.replace(/_/g, ' '), Math.floor((labelW - 18) / 6.6), 2);
+      var lines = lay.labels[i];
       var startY = cy - (lines.length - 1) * 6.5 + 3.5;
       lines.forEach(function (ln, li) {
         root.appendChild(WB.plot.txt(labelW - 12, startY + li * 13, ln, {

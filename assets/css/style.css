@@ -116,6 +116,16 @@ html[lang="en"] .brand-en { display: none; }
 }
 .lang-hint { font-size: 10.5px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
 
+/* 侧栏底部：输出图字体选择（只作用于图表，不影响界面字体） */
+.chart-font-box { margin-top: 12px; }
+.chart-font-select {
+  width: 100%; font-family: inherit; font-size: 12px; line-height: 1.3;
+  padding: 4px 6px; cursor: pointer;
+  border: 1px solid var(--side-line, #d5deeb); border-radius: var(--radius-sm);
+  background: #fff; color: var(--text);
+}
+.chart-font-select:focus { outline: none; border-color: var(--primary-bright, #3f6fd8); }
+
 .main { flex: 1; min-width: 0; padding: 20px 24px 56px; }
 .page-head { margin-bottom: 14px; }
 .page-head h1 { font-size: 19px; }

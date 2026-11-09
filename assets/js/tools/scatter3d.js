@@ -570,7 +570,7 @@
     /* ---- 样本标签 ---- */
     if (o.showLabels && d.points.length <= 60) {
       drawn.forEach(function (it) {
-        scene.appendChild(WB.plot.txt(it.pr[0] + 5, it.pr[1] + 3, WB.plot.ellipsis(it.p.id, 10), {
+        scene.appendChild(WB.plot.txt(it.pr[0] + 5, it.pr[1] + 3, WB.plot.truncateW(it.p.id, 80, 10.5), {
           'font-size': 10.5, 'font-weight': 600, fill: WB.plot.TICKTEXT
         }));
       });
@@ -588,7 +588,7 @@
       d.groups.forEach(function (grp, gi) {
         var y = ly + gi * 19;
         lg.appendChild(S('circle', { cx: lx + 2, cy: y + 4, r: 4.6, fill: WB.plot.palette(gi), stroke: '#ffffff', 'stroke-width': 0.7 }));
-        lg.appendChild(WB.plot.txt(lx + 15, y + 8, WB.plot.ellipsis(grp.name + ' (n=' + grp.pts.length + ')', 19), { 'font-size': 12, fill: WB.plot.TEXT }));
+        lg.appendChild(WB.plot.txt(lx + 15, y + 8, WB.plot.truncateW(grp.name + ' (n=' + grp.pts.length + ')', 138, 12), { 'font-size': 12, fill: WB.plot.TEXT }));
       });
     }
   }

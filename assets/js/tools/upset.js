@@ -106,8 +106,8 @@
 
   function draw(container, sets, inter, opt, onPick) {
     var n = sets.length;
-    var nameW = Math.min(150, Math.max.apply(null, sets.map(function (s) { return s.name.length * 7 + 14; })));
-    nameW = WB.clamp(nameW, 70, 170);
+    var nameW = Math.max.apply(null, sets.map(function (s) { return WB.plot.textW(s.name, 12) + 14; }));
+    nameW = WB.clamp(nameW, 70, 340);
     var setBarW = 86;
     var colW = inter.length <= 26 ? 30 : (inter.length <= 55 ? 20 : 15);
     var matrixW = colW * inter.length;
@@ -138,7 +138,7 @@
     sets.forEach(function (s, i) {
       var y = rowY.get(i);
       var bw = maxSetSize ? setBarW * s.elements.length / maxSetSize : 0;
-      root.appendChild(WB.plot.txt(nameW - 10, y + 4.5, WB.plot.ellipsis(s.name, 20), {
+      root.appendChild(WB.plot.txt(nameW - 10, y + 4.5, WB.plot.truncateW(s.name, nameW - 12, 12), {
         'text-anchor': 'end', 'font-size': 12, fill: WB.plot.TEXT
       }));
       var rect = S('rect', {

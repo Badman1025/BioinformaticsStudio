@@ -112,9 +112,10 @@
     var clone = svg.cloneNode(true);
     clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
-    // 内联必要的样式（字体、颜色）
+    // 内联必要的样式（字体随「输出图字体」选项走，中文自动回退宋体；轴颜色）
     var st = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-    st.textContent = WB.svgInlineCSS || '';
+    var fontStack = (WB.plot && WB.plot.chartFontStack) ? WB.plot.chartFontStack() : 'Arial, "SimSun", sans-serif';
+    st.textContent = 'text{font-family:' + fontStack + ';}' + (WB.svgInlineCSS || '');
     clone.insertBefore(st, clone.firstChild);
     return '<?xml version="1.0" encoding="UTF-8"?>\n' +
       new XMLSerializer().serializeToString(clone);

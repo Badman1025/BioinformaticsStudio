@@ -454,7 +454,7 @@
           stroke: '#9c755f', 'stroke-width': 1.4, 'marker-end': ''
         });
         root.appendChild(ln);
-        var tEl = WB.plot.txt(ex + 3, ey - 2, WB.plot.ellipsis(f.name, 12), { 'font-size': 10, fill: '#8a6449' });
+        var tEl = WB.plot.txt(ex + 3, ey - 2, WB.plot.truncateW(f.name, 90, 10), { 'font-size': 10, fill: '#8a6449' });
         root.appendChild(tEl);
         WB.plot.bindTip(ln, function () {
           return '<b>' + f.name + '</b><br>' + T('PC1 载荷') + ' ' + WB.formatNum(lx, 3) + '<br>' + T('PC2 载荷') + ' ' + WB.formatNum(ly, 3);
@@ -472,7 +472,7 @@
           '<br>PC1 = ' + WB.formatNum(p.x, 3) + '<br>PC2 = ' + WB.formatNum(p.y, 3);
       });
       if (cfg.showLabels) {
-        root.appendChild(WB.plot.txt(sx(p.x) + 6, sy(p.y) + 3.5, WB.plot.ellipsis(cfg.rowNames ? cfg.rowNames[p.i] : '', 10), {
+        root.appendChild(WB.plot.txt(sx(p.x) + 6, sy(p.y) + 3.5, WB.plot.truncateW(cfg.rowNames ? cfg.rowNames[p.i] : '', 80, 9.5), {
           'font-size': 9.5, fill: WB.plot.MUTED
         }));
       }

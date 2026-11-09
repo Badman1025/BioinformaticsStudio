@@ -49,7 +49,7 @@
     return n;
   }
   function txt(x, y, content, attrs) {
-    var a = Object.assign({ x: x, y: y, 'font-size': 12, fill: WB.plot.TEXT, 'font-family': WB.plot.FONT }, attrs || {});
+    var a = Object.assign({ x: x, y: y, 'font-size': 12, fill: WB.plot.TEXT, 'font-family': chartFontStack() }, attrs || {});
     return s('text', Object.assign(a, { text: content }));
   }
 
@@ -60,6 +60,35 @@
   var TICKTEXT = '#222d37';
   var AXIS = '#b6c2cc';
   var GRID = '#eaeff3';
+
+  /* --------------------------- 输出图字体 -------------------------------- */
+  /* 输出图（SVG 与 PNG 导出）的西文字体选项。只作用于图表文字，不影响网页界面字体；
+   * 中文一律使用宋体：字体栈按字符逐个回退（西文字体不含 CJK 字形，汉字自动落到 SimSun）。
+   * w 为该字体相对估宽基线（Helvetica 系）的拉丁字符宽度系数，供 textW 按所选字体校正估宽。 */
+  var FONT_OPTIONS = [
+    { key: 'times',     label: 'Times New Roman', stack: '"Times New Roman", Times, "SimSun", serif',             w: 0.94 },
+    { key: 'arial',     label: 'Arial',           stack: 'Arial, Helvetica, "SimSun", sans-serif',                w: 1.00 },
+    { key: 'helvetica', label: 'Helvetica',       stack: 'Helvetica, "Helvetica Neue", Arial, "SimSun", sans-serif', w: 1.00 },
+    { key: 'georgia',   label: 'Georgia',         stack: 'Georgia, "Times New Roman", "SimSun", serif',           w: 0.98 },
+    { key: 'tahoma',    label: 'Tahoma',          stack: 'Tahoma, Arial, "SimSun", sans-serif',                   w: 1.03 },
+    { key: 'verdana',   label: 'Verdana',         stack: 'Verdana, Tahoma, "SimSun", sans-serif',                 w: 1.10 },
+    { key: 'courier',   label: 'Courier New',     stack: '"Courier New", Courier, "SimSun", monospace',           w: 1.06 }
+  ];
+  var FONT_STORE = 'wb.chart.font';
+  /** 当前生效的输出图字体选项（localStorage 记忆，默认 Times New Roman） */
+  function getChartFont() {
+    var k = '';
+    try { k = localStorage.getItem(FONT_STORE) || ''; } catch (e) { /* 隐私模式等无 localStorage */ }
+    for (var i = 0; i < FONT_OPTIONS.length; i++) if (FONT_OPTIONS[i].key === k) return FONT_OPTIONS[i];
+    return FONT_OPTIONS[0];
+  }
+  /** 当前输出图字体栈（含宋体回退），供 SVG 文本与导出内联样式使用 */
+  function chartFontStack() { return getChartFont().stack; }
+  /** 记忆输出图字体选择（key 见 FONT_OPTIONS） */
+  function setChartFont(key) {
+    try { localStorage.setItem(FONT_STORE, String(key)); } catch (e) { /* 同上 */ }
+  }
+
 
   /* ------------------------------- 配色 --------------------------------- */
 
@@ -133,6 +162,7 @@
       viewBox: '0 0 ' + width + ' ' + height,
       width: '100%',
       style: 'max-width:' + width + 'px;height:auto;display:block;margin:0 auto;',
+      'font-family': chartFontStack(),
       xmlns: SVGNS
     });
     var defs = s('defs');
@@ -321,20 +351,21 @@
     return str.length > max ? str.slice(0, Math.max(1, max - 1)) + '…' : str;
   }
 
-  /** 估算字符串像素宽（中文/全角按 1em，大写与数字 0.66em，窄标点 0.32em，其余 0.54em） */
+  /** 估算字符串像素宽（中文/全角按 1em，大写与数字 0.66em，窄标点 0.32em，其余 0.54em；
+   *  拉丁部分再按当前输出图字体的宽度系数（FONT_OPTIONS[].w）校正） */
   function textW(str, fs) {
     fs = fs || 12;
     str = String(str);
-    var w = 0;
+    var wCjk = 0, wLat = 0;
     for (var i = 0; i < str.length; i++) {
       var ch = str[i];
-      if (/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]/.test(ch)) w += fs;
-      else if (/[MWmw@%&]/.test(ch)) w += fs * 0.85;
-      else if (/[A-Z0-9]/.test(ch)) w += fs * 0.66;
-      else if (/[iljI|.,'`:;!\[\]()]/.test(ch)) w += fs * 0.32;
-      else w += fs * 0.54;
+      if (/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]/.test(ch)) wCjk += fs;
+      else if (/[MWmw@%&]/.test(ch)) wLat += fs * 0.85;
+      else if (/[A-Z0-9]/.test(ch)) wLat += fs * 0.66;
+      else if (/[iljI|.,'`:;!\[\]()]/.test(ch)) wLat += fs * 0.32;
+      else wLat += fs * 0.54;
     }
-    return w;
+    return wCjk + wLat * getChartFont().w;
   }
 
   /** 按像素预算截断（超预算时收缩并加省略号；预算内原样返回） */
@@ -358,8 +389,42 @@
       if (maxLines && lines.length >= maxLines) break;
     }
     if (cur) lines.push(cur);
-    if (maxLines && lines.length > maxLines) lines = lines.slice(0, maxLines);
+    if (maxLines && lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      /* 内容被截断时补省略号（替换末字符，宽度基本不变），禁止静默截断 */
+      var last = lines[lines.length - 1] || '';
+      lines[lines.length - 1] = last.length > 1 ? last.slice(0, -1) + '…' : '…';
+    }
     return lines;
+  }
+
+  /** 按像素预算换行（优先在空格/下划线断行；单个词超预算时硬切）。
+   *  至多 maxLines 行；仍有剩余内容时末行截断并补省略号（调用 truncateW 兜底）。 */
+  function wrapTextW(str, maxPx, fs, maxLines) {
+    str = String(str).replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+    maxLines = maxLines || 2;
+    if (textW(str, fs) <= maxPx) return [str];
+    var out = [], rest = str;
+    while (out.length < maxLines && rest) {
+      if (textW(rest, fs) <= maxPx) { out.push(rest); rest = ''; break; }
+      var words = rest.split(' '), line = '', k = 0;
+      while (k < words.length) {
+        var t = line ? line + ' ' + words[k] : words[k];
+        if (textW(t, fs) > maxPx) break;
+        line = t; k++;
+      }
+      if (!line) { /* 首个词超预算：硬切到恰好放得下 */
+        var s = words[0];
+        while (s.length > 1 && textW(s, fs) > maxPx) s = s.slice(0, -1);
+        out.push(s);
+        rest = rest.slice(s.length).trim();
+        continue;
+      }
+      out.push(line);
+      rest = rest.slice(line.length).trim();
+    }
+    if (rest) out[out.length - 1] = truncateW(out[out.length - 1] + '…', maxPx, fs);
+    return out;
   }
 
   /* ------------------------------ 通用面板 ------------------------------- */
@@ -672,14 +737,16 @@
 
   WB.plot = {
     s: s, g: g, txt: txt, SVGNS: SVGNS,
-    FONT: FONT, TEXT: TEXT, MUTED: MUTED, TICKTEXT: TICKTEXT, AXIS: AXIS, GRID: GRID,
+    FONT: FONT, FONT_OPTIONS: FONT_OPTIONS,
+    getChartFont: getChartFont, chartFontStack: chartFontStack, setChartFont: setChartFont,
+    TEXT: TEXT, MUTED: MUTED, TICKTEXT: TICKTEXT, AXIS: AXIS, GRID: GRID,
     PALETTE: PALETTE, palette: palette, RAMPS: RAMPS, RAMP_LABELS: RAMP_LABELS,
     ramp: ramp, rampColors: rampColors, hex2rgb: hex2rgb, rgb2hex: rgb2hex, lum: lum,
     linearScale: linearScale, bandScale: bandScale,
     createSVG: createSVG, axisBottom: axisBottom, axisLeft: axisLeft, gridX: gridX, gridY: gridY,
     tipShow: tipShow, tipMove: tipMove, tipHide: tipHide, bindTip: bindTip,
     legendCategorical: legendCategorical, legendContinuous: legendContinuous,
-    addToolbar: addToolbar, ellipsis: ellipsis, textW: textW, truncateW: truncateW, wrapText: wrapText, emptyState: emptyState,
+    addToolbar: addToolbar, ellipsis: ellipsis, textW: textW, truncateW: truncateW, wrapText: wrapText, wrapTextW: wrapTextW, emptyState: emptyState,
     dendrogram: dendrogram, matrixHeatmap: matrixHeatmap, sigStar: sigStar
   };
 })(window);

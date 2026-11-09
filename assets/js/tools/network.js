@@ -625,7 +625,7 @@
     }
     var fs = nodes.length > 120 ? 8.5 : (nodes.length > 60 ? 9.5 : 10.5);
     labelList.forEach(function (nd) {
-      var text = WB.plot.ellipsis(nd.label, 22);
+      var text = WB.plot.truncateW(nd.label, 150, fs);
       var t = WB.plot.txt(nd.x, nd.y - nd.r - 4, text, {
         'text-anchor': 'middle', 'font-size': fs, fill: WB.plot.TEXT, 'font-weight': 600
       });
@@ -654,7 +654,7 @@
         var cx = colX + Math.floor(i / perCol) * 132;
         var cy = legY + (i % perCol) * 15;
         lg.appendChild(S('circle', { cx: cx + 5, cy: cy - 3, r: 5, fill: WB.plot.palette(i), 'fill-opacity': 0.88, stroke: '#ffffff' }));
-        lg.appendChild(WB.plot.txt(cx + 15, cy + 0.5, WB.plot.ellipsis(gp, 15), { 'font-size': 11.5, 'font-weight': 600, fill: WB.plot.TEXT }));
+        lg.appendChild(WB.plot.txt(cx + 15, cy + 0.5, WB.plot.truncateW(gp, 112, 11.5), { 'font-size': 11.5, 'font-weight': 600, fill: WB.plot.TEXT }));
       });
     } else if (cfg.nodeColor === 'degree') {
       var nSeg = 26, segW = 5;

@@ -10,10 +10,8 @@
   WB.tools = WB.tools || {};
   WB.toolOrder = WB.toolOrder || [];
 
-  /* 导出 SVG 时内联样式 */
-  WB.svgInlineCSS =
-    'text{font-family:"Helvetica Neue",Helvetica,"PingFang SC","Microsoft YaHei",Arial,sans-serif;}' +
-    '.axis line{stroke:#b6c2cc;}';
+  /* 导出 SVG 时内联样式（text 字体在 utils.svgToString 中按「输出图字体」选项动态生成） */
+  WB.svgInlineCSS = '.axis line{stroke:#b6c2cc;}';
 
   /* ------------------------- 界面文案（中 → 英） -------------------------- */
 
@@ -40,6 +38,8 @@
   reg('极速导入，便捷分析', 'Fast import, easy analysis');
   reg('界面语言', 'Interface language');
   reg('界面与图表文字的中英文切换', 'Switch the interface and figures between Chinese and English');
+  reg('输出图字体', 'Figure font');
+  reg('图表内西文字体；中文自动使用宋体', 'Latin font inside figures; Chinese text always falls back to SimSun');
   reg('集合 / 富集 / 相关性 / 降维 / 差异 / 聚类 / 网络 / 分布 / 构成 / 趋势 / 统计检验 / 生存分析 / 序列常用分析工具；全部计算在浏览器本地完成，数据不上传，无需联网即可使用。',
     'Common bioinformatics analyses — set / enrichment / correlation / dimensionality reduction / differential / clustering / network / distribution / composition / trend / statistical testing / survival / sequence. All computation runs locally in your browser; no data is uploaded and no network connection is required.');
   reg('使用步骤', 'Getting started');
@@ -49,11 +49,13 @@
   reg('<li>左侧选择需要的分析模块，例如「韦恩图」或「聚类热图」。</li>' +
     '<li>页面顶部会给出<b>输入数据格式示例</b>，按示例格式整理数据即可；可点<b>下载模板</b>、<b>加载示例数据</b>，或直接把 Excel 里的表格复制粘贴到输入框。</li>' +
     '<li>设置参数后点<b>开始分析</b>，结果图与结果表均可导出 SVG / PNG / TSV。</li>' +
-    '<li>左下角可切换<b>界面语言</b>（中文 / English）——界面文字与图内文字会一起切换，便于直接用于中英文论文投稿。</li>',
+    '<li>左下角可切换<b>界面语言</b>（中文 / English）——界面文字与图内文字会一起切换，便于直接用于中英文论文投稿。</li>' +
+    '<li>左下角还可选择<b>输出图字体</b>（默认 Times New Roman，可选 Arial 等）——只改图表内西文字母与数字的字体，图内中文固定使用宋体。</li>',
     '<li>Select a module from the left, e.g. “Venn diagram” or “Clustered heatmap”.</li>' +
     '<li>Each page shows <b>input format examples</b> at the top; arrange your data accordingly. Use <b>Download template</b>, <b>Load example data</b>, or paste a table copied from Excel.</li>' +
     '<li>Set the parameters and click <b>Run analysis</b>; figures and tables can be exported as SVG / PNG / TSV.</li>' +
-    '<li>The bottom-left switch changes the <b>interface language</b> (Chinese / English) — UI text and figure text switch together, suitable for Chinese- or English-language manuscripts.</li>');
+    '<li>The bottom-left switch changes the <b>interface language</b> (Chinese / English) — UI text and figure text switch together, suitable for Chinese- or English-language manuscripts.</li>' +
+    '<li>The bottom-left <b>figure font</b> selector (Times New Roman by default, Arial and others available) changes only the Latin font inside figures; Chinese figure text always uses SimSun.</li>');
 
   reg('<span class="alert-dot"></span><span>所有计算均在浏览器本地完成，数据不会离开本机。' +
     '把整个文件夹复制到任意电脑、双击 <code>index.html</code> 即可离线使用（所有脚本均已本地内置，零外部依赖）。</span>',
@@ -82,6 +84,17 @@
     '<li>Only <b>fixed interface and figure text</b> is translated; gene names, sample names, group names and pathway names from your data are never changed.</li>' +
     '<li>Your input data is preserved when switching, and the last analysis is re-run automatically in the new language.</li>' +
     '<li>Your choice is remembered (browser local storage), so the next visit keeps the same language.</li>' +
+    '</ul>');
+
+  reg('<p>左侧栏底部可选择<b>输出图字体</b>（默认 Times New Roman，可选 Arial、Helvetica、Georgia、Tahoma、Verdana、Courier New），只作用于图表内及导出 SVG / PNG 中的西文字母与数字，不影响网页界面字体；图内中文一律使用宋体（SimSun）。</p>' +
+    '<ul>' +
+    '<li>切换后当前图会自动按新字体重新估宽并重算一次刚才的分析。</li>' +
+    '<li>选择会被记住（浏览器本地存储），下次打开仍保持上次的字体。</li>' +
+    '</ul>',
+    '<p>The bottom of the sidebar provides a <b>figure font</b> selector (Times New Roman by default; Arial, Helvetica, Georgia, Tahoma, Verdana and Courier New are available). It applies only to Latin letters and digits inside figures and exported SVG / PNG files — the web interface font is unaffected — while Chinese text inside figures always uses SimSun.</p>' +
+    '<ul>' +
+    '<li>After switching, the current figure is re-measured and re-rendered with the new font automatically.</li>' +
+    '<li>Your choice is remembered (browser local storage), so the next visit keeps the same figure font.</li>' +
     '</ul>');
 
   reg('<p>每个模块都支持三种输入方式，任选其一：</p>' +
@@ -341,6 +354,33 @@
     });
   }
 
+  /* -------------------------- 输出图字体切换 ------------------------------ */
+
+  function initChartFont() {
+    var sel = WB.$('#chart-font-select');
+    if (!sel || !WB.plot || !WB.plot.FONT_OPTIONS) return;
+    WB.clear(sel);
+    WB.plot.FONT_OPTIONS.forEach(function (o) {
+      sel.appendChild(el('option', { value: o.key, text: o.label }));
+    });
+    sel.value = WB.plot.getChartFont().key;
+
+    sel.addEventListener('change', function () {
+      WB.plot.setChartFont(sel.value);
+      window.dispatchEvent(new Event('wb:chartfont'));
+    });
+
+    // 切换输出图字体后：保持输入数据不动，重绘当前页面（新图按新字体渲染并重新估宽）
+    window.addEventListener('wb:chartfont', function () {
+      var rerun = WB._lastRunFn;
+      route();
+      if (rerun) {
+        WB._lastRunFn = rerun;
+        try { rerun(); } catch (e) { /* 重绘失败不影响切换 */ }
+      }
+    });
+  }
+
   /* ------------------------------- 首页 --------------------------------- */
 
   function renderHome(main) {
@@ -371,7 +411,8 @@
       html: WB.t('<li>左侧选择需要的分析模块，例如「韦恩图」或「聚类热图」。</li>' +
         '<li>页面顶部会给出<b>输入数据格式示例</b>，按示例格式整理数据即可；可点<b>下载模板</b>、<b>加载示例数据</b>，或直接把 Excel 里的表格复制粘贴到输入框。</li>' +
         '<li>设置参数后点<b>开始分析</b>，结果图与结果表均可导出 SVG / PNG / TSV。</li>' +
-        '<li>左下角可切换<b>界面语言</b>（中文 / English）——界面文字与图内文字会一起切换，便于直接用于中英文论文投稿。</li>')
+        '<li>左下角可切换<b>界面语言</b>（中文 / English）——界面文字与图内文字会一起切换，便于直接用于中英文论文投稿。</li>' +
+        '<li>左下角还可选择<b>输出图字体</b>（默认 Times New Roman，可选 Arial 等）——只改图表内西文字母与数字的字体，图内中文固定使用宋体。</li>')
     }));
     body.appendChild(el('div.alert.alert-info', {
       html: WB.t('<span class="alert-dot"></span><span>所有计算均在浏览器本地完成，数据不会离开本机。' +
@@ -409,6 +450,15 @@
       '<li>选择会被记住（浏览器本地存储），下次打开仍是上次的语言。</li>' +
       '</ul>'));
     main.appendChild(c0);
+
+    var c0f = WB.ui.card(WB.t('输出图字体'));
+    c0f.querySelector('.card-body').appendChild(doc(
+      '<p>左侧栏底部可选择<b>输出图字体</b>（默认 Times New Roman，可选 Arial、Helvetica、Georgia、Tahoma、Verdana、Courier New），只作用于图表内及导出 SVG / PNG 中的西文字母与数字，不影响网页界面字体；图内中文一律使用宋体（SimSun）。</p>' +
+      '<ul>' +
+      '<li>切换后当前图会自动按新字体重新估宽并重算一次刚才的分析。</li>' +
+      '<li>选择会被记住（浏览器本地存储），下次打开仍保持上次的字体。</li>' +
+      '</ul>'));
+    main.appendChild(c0f);
 
     var c1 = WB.ui.card(WB.t('通用输入方式'));
     c1.querySelector('.card-body').appendChild(doc(
@@ -541,9 +591,9 @@
     else location.hash = target;
   };
   document.addEventListener('DOMContentLoaded', function () {
-    applyStaticI18n(); buildNav(); initLangSwitch(); route();
+    applyStaticI18n(); buildNav(); initLangSwitch(); initChartFont(); route();
   });
   if (document.readyState === 'interactive' || document.readyState === 'complete') {
-    applyStaticI18n(); buildNav(); initLangSwitch(); route();
+    applyStaticI18n(); buildNav(); initLangSwitch(); initChartFont(); route();
   }
 })(window);
