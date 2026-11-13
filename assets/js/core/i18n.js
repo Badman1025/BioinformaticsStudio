@@ -107,6 +107,8 @@
       /* --- 火山图 --- */
       'volcano.threshold': '{v} 阈值',
       'volcano.xAxis': 'log₂ 差异倍数',
+      'volcano.xAxisPair': 'log₂FC（{a} − {b}）',
+      'volcano.stackNote': 'log₂FC = 比较名「 vs 」前者 − 后者（右移 = 前者中高表达）',
       'volcano.yAxis': '−log₁₀ P',
       'volcano.up': '显著上调',
       'volcano.down': '显著下调',
@@ -211,6 +213,8 @@
       /* --- Volcano --- */
       'volcano.threshold': 'cutoff {v}',
       'volcano.xAxis': 'log₂ fold change',
+      'volcano.xAxisPair': 'log₂FC ({a} − {b})',
+      'volcano.stackNote': 'log₂FC = group before “vs” − group after (rightward = higher in the former)',
       'volcano.yAxis': '−log₁₀ P',
       'volcano.up': 'Up-regulated',
       'volcano.down': 'Down-regulated',

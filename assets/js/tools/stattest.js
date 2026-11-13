@@ -99,7 +99,7 @@
     '差异有统计学意义（P < 0.05）': 'Statistically significant (P < 0.05)',
     '差异无统计学意义（P ≥ 0.05）': 'Not statistically significant (P ≥ 0.05)',
     '两两比较': 'Pairwise comparisons',
-    '均值差': 'Mean difference',
+    '均值差（分组 1 − 分组 2）': 'Mean difference (Group 1 − Group 2)',
     '显著性': 'Significance',
     ' omnibus 检验不显著，事后比较仅供参考': 'The omnibus test is not significant, so post-hoc results are indicative only',
     '单样本 t 检验': 'One-sample t-test',
@@ -436,7 +436,7 @@
       WB.ui.dataTable(pBody, [
         { key: 'a', label: T('分组') + ' 1' },
         { key: 'b', label: T('分组') + ' 2' },
-        { key: 'diff', label: T('均值差'), align: 'right', width: 110, format: function (r) { return isFinite(r.diff) ? WB.formatNum(r.diff, 4) : '—'; } },
+        { key: 'diff', label: T('均值差（分组 1 − 分组 2）'), align: 'right', width: 160, format: function (r) { return isFinite(r.diff) ? WB.formatNum(r.diff, 4) : '—'; } },
         { key: 'ci', label: T('95% 置信区间'), align: 'right', width: 150, format: function (r) { return r.ci || '—'; } },
         { key: 'p', label: T('P 值'), align: 'right', width: 96, format: function (r) { return WB.pFormat(r.p); } },
         { key: 'q', label: 'padj', align: 'right', width: 96, format: function (r) { return isFinite(r.q) ? WB.pFormat(r.q) : '—'; } },

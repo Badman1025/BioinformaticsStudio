@@ -56,7 +56,7 @@
     '变量 1': 'Variable 1',
     '变量 2': 'Variable 2',
     'P 值': 'P value',
-    '均值差': 'Mean difference',
+    '均值差（变量 2 − 变量 1）': 'Mean difference (Var 2 − Var 1)',
     'Cohen\'s d': 'Cohen’s d',
     '显著性': 'Significance',
     '全部比较均不显著': 'No pairwise comparison reached significance'
@@ -159,7 +159,8 @@
       for (var i = 0; i < cols.length; i++) {
         for (var j = i + 1; j < cols.length; j++) {
           var tt = WB.stats.welchTTest(cols[i].values, cols[j].values);
-          var d = cohensD(cols[i].values, cols[j].values);
+          /* Cohen's d 与均值差同向（均为 变量2 − 变量1），避免同一行内符号相反 */
+          var d = cohensD(cols[j].values, cols[i].values);
           pairs.push({ a: i, b: j, p: tt.p, meanDiff: WB.stats.mean(cols[j].values) - WB.stats.mean(cols[i].values), d: d });
         }
       }
@@ -218,7 +219,7 @@
         { key: 'rank', label: '#', align: 'right', width: 52 },
         { key: 'a', label: T('变量 1') },
         { key: 'b', label: T('变量 2') },
-        { key: 'meanDiff', label: T('均值差'), align: 'right', width: 100, format: function (r) { return WB.formatNum(r.meanDiff, 4); } },
+        { key: 'meanDiff', label: T('均值差（变量 2 − 变量 1）'), align: 'right', width: 150, format: function (r) { return WB.formatNum(r.meanDiff, 4); } },
         { key: 'd', label: T('Cohen\'s d'), align: 'right', width: 96, format: function (r) { return WB.formatNum(r.d, 3); } },
         { key: 'p', label: T('P 值'), align: 'right', width: 96, format: function (r) { return WB.pFormat(r.p); } },
         { key: 'q', label: 'padj (BH)', align: 'right', width: 100, format: function (r) { return WB.pFormat(r.q); } },

@@ -512,7 +512,7 @@
 
     res.appendChild(WB.ui.alertBox('info',
       T('设计：<b>{design}</b>；显著性检验采用 <b>{test}</b>；多重检验校正：<b>{adj}</b>；阈值 padj ≤ <b>{pc}</b>{fc}。', {
-        design: T('两组比较') + T('：{a} vs {b}', { a: gA, b: gB }),
+        design: T('两组比较') + T('：{a} vs {b}', { a: gB, b: gA }),
         test: T(testName),
         adj: T(adjName),
         pc: pCut,

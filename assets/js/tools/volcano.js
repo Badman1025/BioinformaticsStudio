@@ -50,10 +50,12 @@
       'Works with just gene name, log2FC and P value; if the first column is not a gene name, rows are numbered automatically.',
     ['第一行为样本名、第一列为基因名。<b>分组信息在下方「样本分组」中单独填写</b>（每行「样本名 <TAB> 分组名」）。' +
       '程序会对所有分组两两组合分别做 Welch t 检验并计算 log₂FC，再逐一绘制火山图；' +
-      '比较组合较多时建议用「仅比较这些组合」指定需要的对比（如 <code>Control:Treatment</code>）。']:
+      '比较组合较多时建议用「仅比较这些组合」指定需要的对比（如 <code>Treatment:Control</code>，即实验组 vs 对照组，' +
+      'log₂FC = 前者 − 后者，上调表示在前者中高表达）。']:
       'The first row holds sample names and the first column gene names. <b>Group information is entered separately in the “Sample groups” box below</b> (one “sample <TAB> group” pair per line). ' +
       'All pairs of groups are tested with Welch’s t-test and their log₂FC computed, then each contrast is drawn as a volcano plot; ' +
-      'with many groups, restrict the contrasts via “Only these contrasts” (e.g. <code>Control:Treatment</code>).',
+      'with many groups, restrict the contrasts via “Only these contrasts” (e.g. <code>Treatment:Control</code>, i.e. treatment vs control — ' +
+      'log₂FC = former − latter, and up-regulated means higher in the former group).',
     '差异表达基因分布：log2FC 对 −log₁₀ P，自动标注显著上调/下调基因，可导出显著基因列表；支持表达矩阵输入并对多组做两两比较（层叠 / 分面排版）。':
       'Differential expression landscape: log2FC vs −log₁₀ P, with automatic labelling of significant up/down genes and export of the significant gene list. Also accepts an expression matrix and runs all pairwise contrasts (stacked / faceted layouts).',
     '多组对比': 'Multi-group contrasts',
@@ -168,7 +170,8 @@
       filename: 'volcano_matrix_template.tsv',
       desc: '第一行为样本名、第一列为基因名。<b>分组信息在下方「样本分组」中单独填写</b>（每行「样本名 <TAB> 分组名」）。' +
         '程序会对所有分组两两组合分别做 Welch t 检验并计算 log₂FC，再逐一绘制火山图；' +
-        '比较组合较多时建议用「仅比较这些组合」指定需要的对比（如 <code>Control:Treatment</code>）。',
+        '比较组合较多时建议用「仅比较这些组合」指定需要的对比（如 <code>Treatment:Control</code>，即实验组 vs 对照组，' +
+        'log₂FC = 前者 − 后者，上调表示在前者中高表达）。',
       sample: 'Gene\tC1\tC2\tC3\tT1\tT2\tT3\n' +
         'MKI67\t7.12\t7.44\t6.98\t9.85\t9.52\t10.11\n' +
         'CD8A\t9.24\t9.61\t9.02\t7.35\t7.12\t7.58\n' +
@@ -463,7 +466,8 @@
         var A = ia.map(function (k) { return mat[gi][k]; }).filter(isFinite);
         var B = ib.map(function (k) { return mat[gi][k]; }).filter(isFinite);
         var tt = WB.stats.welchTTest(A, B);
-        var lfc = WB.stats.mean(B) - WB.stats.mean(A);
+        /* 比较方向：面板名「A vs B」表示 A 相对 B，log₂FC = mean(A) − mean(B)（与差异表达模块「实验组 vs 对照组」同一约定） */
+        var lfc = WB.stats.mean(A) - WB.stats.mean(B);
         return { gene: g, log2FC: lfc, p: tt.p };
       });
       rows.forEach(function (r) {
@@ -474,13 +478,14 @@
       });
       return {
         name: pair[0] + ' vs ' + pair[1],
+        a: pair[0], b: pair[1],
         rows: rows,
         color: WB.plot.palette(ci)
       };
     });
 
     res.appendChild(WB.ui.alertBox('info',
-      T('两两比较共 {n} 个（{pairs}）；每组样本数不足 2 的分组已跳过。', {
+      T('两两比较共 {n} 个（{pairs}）；log₂FC = 比较名中前者 − 后者，上调表示在前者中高表达（如「实验组 vs 对照组」即实验组相对对照组）。', {
         n: comps.length, pairs: comps.map(function (p) { return p[0] + ':' + p[1]; }).join('、')
       })));
     if (pairNote) res.appendChild(WB.ui.alertBox('warn', pairNote));
@@ -659,8 +664,8 @@
       fill: 'none', stroke: WB.plot.AXIS
     }));
 
-    /* 轴标题 */
-    root.appendChild(WB.plot.txt(box.x + m.l + (box.w - m.l - m.r) / 2, box.y + box.h - Math.max(16, 18 * fs), T('volcano.xAxis'),
+    /* 轴标题（矩阵模式按比较方向标注：log₂FC（A − B）） */
+    root.appendChild(WB.plot.txt(box.x + m.l + (box.w - m.l - m.r) / 2, box.y + box.h - Math.max(16, 18 * fs), opt.xTitle || T('volcano.xAxis'),
       { 'text-anchor': 'middle', 'font-size': afs, 'font-weight': 600, fill: WB.plot.TEXT }));
     var yl = WB.plot.txt(0, 0, T('volcano.yAxis'),
       { 'text-anchor': 'middle', 'font-size': afs, 'font-weight': 600, fill: WB.plot.TEXT, transform: 'rotate(-90)' });
@@ -751,6 +756,8 @@
     }));
     root.appendChild(S('rect', { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: 'none', stroke: WB.plot.AXIS }));
     root.appendChild(WB.plot.txt(m.l + (W - m.l - m.r) / 2, H - 18, T('volcano.xAxis'), { 'text-anchor': 'middle', 'font-size': 13.5, 'font-weight': 600, fill: WB.plot.TEXT }));
+    /* 图内注明比较方向：log₂FC = 比较名「 vs 」前者 − 后者 */
+    root.appendChild(WB.plot.txt(m.l, 15, T('volcano.stackNote'), { 'text-anchor': 'start', 'font-size': 11, 'font-weight': 600, fill: WB.plot.MUTED }));
     var yl = WB.plot.txt(0, 0, T('volcano.yAxis'), { 'text-anchor': 'middle', 'font-size': 13.5, 'font-weight': 600, fill: WB.plot.TEXT, transform: 'rotate(-90)' });
     yl.setAttribute('x', -(m.t + (H - m.t - m.b) / 2));
     yl.setAttribute('y', 13);
@@ -832,6 +839,7 @@
       var cx = (i % cols) * PW, cy = Math.floor(i / cols) * PH;
       drawPanel(root, res.rows, uniCfg, { x: cx, y: cy, w: PW, h: PH }, {
         title: res.name, legend: false, container: null,
+        xTitle: T('volcano.xAxisPair', { a: res.a, b: res.b }),
         color: null, noStrideNote: true, fixedYMax: yMax
       });
     });
